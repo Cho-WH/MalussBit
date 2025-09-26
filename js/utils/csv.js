@@ -1,18 +1,20 @@
-const CSV_HEADER = 'timestamp,angle_cmd,angle_est,light'
+const CSV_HEADER = 'timestamp_ms,angle_deg,light_level'
 
 export const buildCsv = (samples) => {
-  if (!Array.isArray(samples)) return CSV_HEADER
-  const rows = samples.map((sample) => {
-    const timestamp = sample?.timestamp ? new Date(sample.timestamp).toISOString() : ''
-    const angleCmd = sample?.angleCmd ?? ''
-    const angleEst = sample?.angleEst ?? ''
-    const light = sample?.light ?? ''
-    return [timestamp, angleCmd, angleEst, light].join(',')
-  })
-  return [CSV_HEADER, ...rows].join('\n')
+  if (!Array.isArray(samples) || samples.length === 0) {
+    return CSV_HEADER
+  }
+
+  const rows = samples.map((sample) =>
+    [sample.timestamp, sample.angle, sample.light]
+      .map((value) => (value ?? '')).join(',')
+  )
+
+  return [CSV_HEADER, ...rows].join('
+')
 }
 
-export const downloadCsv = (samples, filename = 'malussbit-log.csv') => {
+export const downloadCsv = (samples, filename = 'malus-log.csv') => {
   if (!Array.isArray(samples) || samples.length === 0) {
     return
   }

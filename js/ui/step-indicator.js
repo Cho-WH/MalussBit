@@ -1,42 +1,27 @@
-import { store, actions } from '../state.js'
+const STEPS = ['prepare', 'measure', 'analyze']
 
-const STEPS = ['prepare', 'calibrate', 'measure', 'analyze']
+export const initStepIndicator = (root, store) => {
+  if (!root || !store) return
+  const items = Array.from(root.querySelectorAll('[data-step]'))
+  const labels = {
+    prepare: '준비',
+    measure: '측정',
+    analyze: '분석',
+  }
 
-export const initStepIndicator = () => {
-  const root = document.querySelector('[data-component="step-indicator"]')
-  if (!root) return () => {}
-
-  const buttons = Array.from(root.querySelectorAll('button[data-step]'))
-
-  buttons.forEach((button) => {
-    button.addEventListener('click', () => {
-      const targetStep = button.dataset.step
-      if (!targetStep) return
-      const state = store.getState()
-      const currentIndex = STEPS.indexOf(state.currentStep)
-      const targetIndex = STEPS.indexOf(targetStep)
-      if (targetIndex === -1) return
-      if (targetIndex <= currentIndex + 1) {
-        store.dispatch(actions.setStep(targetStep))
-      }
-    })
+  items.forEach((item) => {
+    const step = item.dataset.step
+    if (!item.querySelector('[data-role="label"]')) {
+      const label = document.createElement('span')
+      label.dataset.role = 'label'
+      label.textContent = labels[step] ?? step
+      item.append(label)
+    }
   })
 
-  const render = (state) => {
-    const currentIndex = STEPS.indexOf(state.currentStep)
-    buttons.forEach((button) => {
-      const step = button.dataset.step
-      const index = STEPS.indexOf(step)
-      button.classList.toggle('active', index === currentIndex)
-      button.classList.toggle('completed', index < currentIndex)
-      button.disabled = index > currentIndex + 1
+  store.subscribe((state) => {
+    items.forEach((item) => {
+      item.classList.toggle('is-active', item.dataset.step === state.currentStep)
     })
-  }
-
-  const unsubscribe = store.subscribe(render)
-  render(store.getState())
-
-  return () => {
-    unsubscribe()
-  }
+  })
 }

@@ -1,147 +1,129 @@
-const HISTORY_LIMIT_DEFAULT = 600
+const MAX_SAMPLE_COUNT = 500
 
-const INITIAL_CALIBRATION = {
-  angleZero: 0,
-  angleScale: 1,
-  servoSpeedDegPerSec: 120,
-}
-
-const INITIAL_STATE = {
-  connectionStatus: 'disconnected',
+const defaultState = {
   currentStep: 'prepare',
-  deviceInfo: undefined,
-  uiMode: 'student',
-  latestSample: undefined,
-  history: [],
-  historyLimit: HISTORY_LIMIT_DEFAULT,
-  chartMode: 'angle',
-  fitResult: undefined,
-  calibration: { ...INITIAL_CALIBRATION },
-  workflow: {
-    autoCalibrationRunning: false,
-    measurementRunning: false,
-    sweepProgress: 0,
-    sweepDurationMs: 6000,
-    lastRunAt: undefined,
+  connection: {
+    status: 'disconnected',
+    deviceName: null,
   },
+  workflow: {
+    measuring: false,
+    sweepProgress: 0,
+    sweepRemainingMs: 0,
+    sweepDurationMs: 0,
+    sweepStartedAt: null,
+  },
+  samples: [],
+  fitResult: null,
+  fitStatus: 'idle',
   messages: {
-    status: undefined,
-    warning: undefined,
+    status: '',
+    warning: '',
   },
   notes: '',
-  errorMessage: undefined,
-  lastUpdatedAt: undefined,
 }
 
-let currentState = { ...INITIAL_STATE }
-const listeners = new Set()
+const cloneState = (state) => JSON.parse(JSON.stringify(state))
 
-const appendSample = (history, sample, limit) => {
-  if (!sample) return history
-  const next = history.concat(sample)
-  if (next.length > limit) {
-    return next.slice(next.length - limit)
-  }
-  return next
-}
+export const initState = () => {
+  let state = cloneState(defaultState)
+  const listeners = new Set()
 
-const reduce = (state, action) => {
-  switch (action.type) {
-    case 'setStatus':
-      return { ...state, connectionStatus: action.status }
-    case 'setDevice':
-      return { ...state, deviceInfo: action.deviceInfo }
-    case 'setStep':
-      return { ...state, currentStep: action.step }
-    case 'setSample': {
-      const nextHistory = appendSample(state.history, action.sample, state.historyLimit)
-      return {
-        ...state,
-        latestSample: action.sample,
-        history: nextHistory,
-        lastUpdatedAt: action.sample?.timestamp,
-        errorMessage: undefined,
+  const getState = () => cloneState(state)
+
+  const notify = () => {
+    const snapshot = getState()
+    listeners.forEach((listener) => {
+      try {
+        listener(snapshot)
+      } catch (error) {
+        console.error('State listener failed', error)
       }
-    }
-    case 'setHistoryLimit': {
-      const limit = Math.max(1, Number(action.limit) || HISTORY_LIMIT_DEFAULT)
-      const trimmed = state.history.slice(-limit)
-      return { ...state, historyLimit: limit, history: trimmed }
-    }
-    case 'setChartMode':
-      return { ...state, chartMode: action.mode }
-    case 'setCalibration':
-      return { ...state, calibration: { ...state.calibration, ...action.calibration } }
-    case 'setFitResult':
-      return { ...state, fitResult: action.fitResult }
-    case 'setError':
-      return { ...state, errorMessage: action.message }
-    case 'setWorkflow':
-      return { ...state, workflow: { ...state.workflow, ...action.workflow } }
-    case 'setMessage':
-      return { ...state, messages: { ...state.messages, ...action.message } }
-    case 'setNotes':
-      return { ...state, notes: action.notes }
-    case 'setUiMode':
-      return { ...state, uiMode: action.uiMode }
-    case 'reset':
-      return {
-        ...INITIAL_STATE,
-        calibration: state.calibration,
-        historyLimit: state.historyLimit,
-        chartMode: state.chartMode,
-        notes: state.notes,
-        uiMode: state.uiMode,
-      }
-    default:
-      return state
+    })
   }
-}
 
-const notify = () => {
-  listeners.forEach((listener) => listener(currentState))
-}
+  const setState = (partial) => {
+    state = { ...state, ...partial }
+    notify()
+  }
 
-export const store = {
-  getState() {
-    return currentState
-  },
-  dispatch(action) {
-    if (!action || typeof action.type !== 'string') return
-    const nextState = reduce(currentState, action)
-    if (nextState !== currentState) {
-      currentState = nextState
-      notify()
+  const setNested = (key, patch) => {
+    state = {
+      ...state,
+      [key]: {
+        ...state[key],
+        ...patch,
+      },
     }
-  },
-  subscribe(listener) {
+    notify()
+  }
+
+  const appendSample = (sample) => {
+    if (!sample) return
+    const nextSamples = state.samples.concat(sample)
+    if (nextSamples.length > MAX_SAMPLE_COUNT) {
+      nextSamples.splice(0, nextSamples.length - MAX_SAMPLE_COUNT)
+    }
+    state = {
+      ...state,
+      samples: nextSamples,
+    }
+    notify()
+  }
+
+  const resetSamples = () => {
+    if (state.samples.length === 0) return
+    state = {
+      ...state,
+      samples: [],
+    }
+    notify()
+  }
+
+  const subscribe = (listener) => {
     if (typeof listener !== 'function') return () => {}
     listeners.add(listener)
-    listener(currentState)
-    return () => {
-      listeners.delete(listener)
-    }
-  },
+    listener(getState())
+    return () => listeners.delete(listener)
+  }
+
+  return {
+    getState,
+    subscribe,
+    setState,
+    setStep: (step) => {
+      if (!step) return
+      setState({ currentStep: step })
+    },
+    setConnection: (patch) => {
+      if (!patch) return
+      setNested('connection', patch)
+    },
+    setWorkflow: (patch) => {
+      if (!patch) return
+      setNested('workflow', patch)
+    },
+    appendSample,
+    resetSamples,
+    setMessages: (patch) => {
+      if (!patch) return
+      setNested('messages', patch)
+    },
+    setNotes: (text) => {
+      setState({ notes: text ?? '' })
+    },
+    setFitResult: (result) => {
+      setState({ fitResult: result })
+    },
+    setFitStatus: (status) => {
+      if (!status) return
+      setState({ fitStatus: status })
+    },
+    reset: () => {
+      state = cloneState(defaultState)
+      notify()
+    },
+  }
 }
 
-export const actions = {
-  setStatus: (status) => ({ type: 'setStatus', status }),
-  setDevice: (deviceInfo) => ({ type: 'setDevice', deviceInfo }),
-  setStep: (step) => ({ type: 'setStep', step }),
-  setSample: (sample) => ({ type: 'setSample', sample }),
-  setHistoryLimit: (limit) => ({ type: 'setHistoryLimit', limit }),
-  setChartMode: (mode) => ({ type: 'setChartMode', mode }),
-  setCalibration: (calibration) => ({ type: 'setCalibration', calibration }),
-  setFitResult: (fitResult) => ({ type: 'setFitResult', fitResult }),
-  setError: (message) => ({ type: 'setError', message }),
-  setWorkflow: (workflow) => ({ type: 'setWorkflow', workflow }),
-  setMessage: (message) => ({ type: 'setMessage', message }),
-  setNotes: (notes) => ({ type: 'setNotes', notes }),
-  setUiMode: (uiMode) => ({ type: 'setUiMode', uiMode }),
-  reset: () => ({ type: 'reset' }),
-}
-
-export const constants = {
-  HISTORY_LIMIT_DEFAULT,
-  INITIAL_CALIBRATION,
-}
+export { MAX_SAMPLE_COUNT }

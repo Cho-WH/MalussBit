@@ -1,22 +1,36 @@
-export const parseSample = (line) => {
-  if (typeof line !== 'string' || line.trim().length === 0) {
+const isFiniteNumber = (value) => Number.isFinite(value)
+
+const sanitizeNumber = (value) => {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value !== '') {
+    const parsed = Number.parseFloat(value)
+    if (isFiniteNumber(parsed)) return parsed
+  }
+  return null
+}
+
+export const parseSample = (raw) => {
+  if (typeof raw !== 'string') {
     return null
   }
 
-  const [msRaw, cmdRaw, estRaw, lightRaw] = line.split(',')
-  const timestamp = Number(msRaw)
-  const angleCmd = Number(cmdRaw)
-  const angleEst = estRaw !== undefined && estRaw.length > 0 ? Number(estRaw) : undefined
-  const light = Number(lightRaw ?? '')
+  const segments = raw.split(',')
+  if (segments.length < 3) {
+    return null
+  }
 
-  if (!Number.isFinite(timestamp) || !Number.isFinite(angleCmd) || !Number.isFinite(light)) {
+  const [timestampStr, angleStr, _angleEstStr = '', lightStr = ''] = segments.map((part) => part.trim())
+  const timestamp = sanitizeNumber(timestampStr)
+  const angle = sanitizeNumber(angleStr)
+  const light = sanitizeNumber(lightStr)
+
+  if (![timestamp, angle, light].every((value) => value !== null)) {
     return null
   }
 
   return {
     timestamp,
-    angleCmd,
-    angleEst: Number.isFinite(angleEst) ? angleEst : undefined,
+    angle,
     light,
   }
 }

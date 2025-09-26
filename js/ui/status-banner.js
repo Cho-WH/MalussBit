@@ -1,22 +1,21 @@
-import { store } from '../state.js'
+export const initStatusBanner = (root, store) => {
+  if (!root || !store) return
 
-export const initStatusBanner = () => {
-  const root = document.querySelector('[data-component="status-banner"]')
-  if (!root) return () => {}
+  const statusEl = root.querySelector('[data-role="status"]')
+  const warningEl = root.querySelector('[data-role="warning"]')
 
-  const render = (state) => {
-    const { status, warning } = state.messages || {}
-    const { errorMessage } = state
-    const message = warning || errorMessage || status
-    root.textContent = message || ''
-    root.dataset.level = warning || errorMessage ? 'warning' : 'info'
-    root.hidden = !message
-  }
+  store.subscribe((state) => {
+    const { status, warning } = state.messages
+    if (statusEl) {
+      statusEl.textContent = status || ''
+      statusEl.hidden = !status
+    }
+    if (warningEl) {
+      warningEl.textContent = warning || ''
+      warningEl.hidden = !warning
+    }
 
-  const unsubscribe = store.subscribe(render)
-  render(store.getState())
-
-  return () => {
-    unsubscribe()
-  }
+    const hasMessage = Boolean(status) || Boolean(warning)
+    root.hidden = !hasMessage
+  })
 }

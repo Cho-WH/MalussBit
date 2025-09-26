@@ -1,163 +1,60 @@
-import { store, actions } from '../state.js'
-import { formatTimestamp, formatRelative } from '../utils/format.js'
-import { parseSample } from '../utils/parseSample.js'
-import {
-  isSupported,
-  requestDevice,
-  connect,
-  startNotifications,
-  stopNotifications,
-  disconnect,
-  setDisconnectedListener,
-} from '../bluetooth.js'
-
-const statusText = {
-  disconnected: '연결 안 됨',
-  connecting: '연결 중',
-  connected: '연결됨',
+const STATUS_TEXT = {
+  unsupported: '이 브라우저는 Web Bluetooth를 지원하지 않습니다.',
+  disconnected: '연결 대기 중입니다.',
+  requesting: '장치를 선택해 주세요…',
+  connecting: '연결 중…',
+  connected: '연결 완료.',
+  disconnecting: '연결을 해제하는 중…',
 }
 
-export const initConnectionPanel = () => {
-  const root = document.querySelector('[data-component="connection-panel"]')
-  if (!root) return () => {}
-
-  const statusEl = root.querySelector('[data-bind="status"]')
-  const lastUpdatedEl = root.querySelector('[data-bind="last-updated"]')
-  const relativeEl = root.querySelector('[data-bind="relative-time"]')
-  const errorEl = root.querySelector('[data-bind="error"]')
-  const helperEl = root.querySelector('[data-bind="helper"]')
+export const initConnectionPanel = (root, store, actions) => {
+  if (!root || !store) return
   const connectBtn = root.querySelector('[data-action="connect"]')
   const disconnectBtn = root.querySelector('[data-action="disconnect"]')
+  const statusText = root.querySelector('[data-bind="status"]')
+  const helperText = root.querySelector('[data-bind="helper"]')
+  const deviceLabel = root.querySelector('[data-bind="device"]')
 
-  let isBusy = false
-  let manualDisconnect = false
+  const { onConnect, onDisconnect } = actions ?? {}
 
-  const updateButtons = (state) => {
-    if (connectBtn) connectBtn.disabled = isBusy || state.connectionStatus !== 'disconnected' || !isSupported()
-    if (disconnectBtn) disconnectBtn.disabled = isBusy || state.connectionStatus === 'disconnected'
+  if (connectBtn && typeof onConnect === 'function') {
+    connectBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      onConnect()
+    })
   }
 
-  const showError = (message) => {
-    if (!errorEl) return
-    if (!message) {
-      errorEl.textContent = ''
-      errorEl.hidden = true
-      return
+  if (disconnectBtn && typeof onDisconnect === 'function') {
+    disconnectBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      onDisconnect()
+    })
+  }
+
+  store.subscribe((state) => {
+    const { connection } = state
+    const status = connection.status || 'disconnected'
+    if (statusText) {
+      statusText.textContent = STATUS_TEXT[status] ?? STATUS_TEXT.disconnected
     }
-    errorEl.textContent = message
-    errorEl.hidden = false
-  }
-
-  const render = (state) => {
-    if (statusEl) statusEl.textContent = statusText[state.connectionStatus] ?? '—'
-    if (lastUpdatedEl) lastUpdatedEl.textContent = formatTimestamp(state.lastUpdatedAt)
-    if (relativeEl) relativeEl.textContent = formatRelative(state.lastUpdatedAt)
-    showError(state.errorMessage)
-    updateButtons(state)
-  }
-
-  if (!isSupported() && helperEl) {
-    helperEl.textContent =
-      '이 환경은 Web Bluetooth를 지원하지 않습니다. Chrome 또는 Edge에서 HTTPS 혹은 http://localhost 로 접근하세요.'
-  }
-
-  setDisconnectedListener(() => {
-    store.dispatch(actions.reset())
-    store.dispatch(actions.setStatus('disconnected'))
-    store.dispatch(actions.setStep('prepare'))
-    if (!manualDisconnect) {
-      store.dispatch(actions.setError('디바이스 연결이 종료되었습니다.'))
-      store.dispatch(actions.setMessage({ status: undefined, warning: '디바이스 연결이 종료되었습니다.' }))
-    }
-    manualDisconnect = false
-  })
-
-  const handleLine = (line) => {
-    if (line.startsWith('CAL,')) {
-      const parts = line.split(',')
-      const zero = Number(parts[1])
-      const scale = Number(parts[2])
-      const speed = Number(parts[3])
-      const next = {
-        angleZero: Number.isFinite(zero) ? zero : store.getState().calibration.angleZero,
-        angleScale: Number.isFinite(scale) ? scale : store.getState().calibration.angleScale,
-        servoSpeedDegPerSec: Number.isFinite(speed)
-          ? speed
-          : store.getState().calibration.servoSpeedDegPerSec,
+    if (helperText) {
+      if (status === 'unsupported') {
+        helperText.textContent = 'Chrome 혹은 Edge 브라우저에서 HTTPS(또는 http://localhost) 환경으로 접속하세요.'
+      } else {
+        helperText.textContent = 'micro:bit 전원이 켜져 있고 페어링 모드인지 확인하세요.'
       }
-      store.dispatch(actions.setCalibration(next))
-      store.dispatch(actions.setWorkflow({ autoCalibrationRunning: false }))
-      store.dispatch(actions.setMessage({ status: '자동 보정이 완료되었습니다.', warning: undefined }))
-      store.dispatch(actions.setStep('measure'))
-      return
+    }
+    if (deviceLabel) {
+      deviceLabel.textContent = connection.deviceName ? `장치: ${connection.deviceName}` : ''
     }
 
-    const sample = parseSample(line)
-    if (sample) {
-      store.dispatch(actions.setSample(sample))
+    const isConnecting = status === 'requesting' || status === 'connecting'
+    if (connectBtn) {
+      connectBtn.disabled = status === 'unsupported' || isConnecting || status === 'connected'
     }
-  }
-
-  const connectFlow = async () => {
-    try {
-      isBusy = true
-      store.dispatch(actions.setError(undefined))
-      store.dispatch(actions.setStatus('connecting'))
-      const device = await requestDevice()
-      const info = await connect(device)
-      store.dispatch(actions.setDevice(info))
-      await startNotifications(handleLine)
-      store.dispatch(actions.setStatus('connected'))
-      store.dispatch(actions.setStep('calibrate'))
-      store.dispatch(
-        actions.setMessage({ status: '디바이스와 연결되었습니다. 자동 보정을 실행하세요.', warning: undefined })
-      )
-    } catch (error) {
-      console.error(error)
-      await stopNotifications().catch(() => {})
-      await disconnect().catch(() => {})
-      store.dispatch(actions.setStatus('disconnected'))
-      const message = error instanceof Error ? error.message : '디바이스 연결 중 오류가 발생했습니다.'
-      store.dispatch(actions.setError(message))
-      store.dispatch(actions.setMessage({ status: undefined, warning: message }))
-    } finally {
-      isBusy = false
-      updateButtons(store.getState())
+    if (disconnectBtn) {
+      disconnectBtn.disabled = status !== 'connected'
     }
-  }
-
-  connectBtn?.addEventListener('click', () => {
-    const state = store.getState()
-    if (state.connectionStatus !== 'disconnected' || isBusy || !isSupported()) return
-    void connectFlow()
+    root.classList.toggle('is-connected', status === 'connected')
   })
-
-  disconnectBtn?.addEventListener('click', async () => {
-    const state = store.getState()
-    if (state.connectionStatus === 'disconnected' || isBusy) return
-    try {
-      manualDisconnect = true
-      isBusy = true
-      await stopNotifications()
-      await disconnect()
-    } finally {
-      store.dispatch(actions.reset())
-      store.dispatch(actions.setStatus('disconnected'))
-      store.dispatch(actions.setStep('prepare'))
-      store.dispatch(actions.setMessage({ status: '연결이 해제되었습니다.', warning: undefined }))
-      isBusy = false
-      updateButtons(store.getState())
-    }
-  })
-
-  const unsubscribe = store.subscribe(render)
-  const interval = window.setInterval(() => {
-    const state = store.getState()
-    if (relativeEl) relativeEl.textContent = formatRelative(state.lastUpdatedAt)
-  }, 1000)
-
-  return () => {
-    unsubscribe()
-    window.clearInterval(interval)
-  }
 }

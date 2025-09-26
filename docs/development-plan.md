@@ -19,14 +19,14 @@ MalussBit는 micro:bit v2, 서보모터, 편광 필름, 내장 조도 센서를 
 | UI 레이아웃 | `index.html`, `styles.css` | 레이아웃, 컬러, 폰트 등 기본 뼈대를 유지하되 컴포넌트 내용은 말루스 실험에 맞춰 개편 |
 | Web Bluetooth | `js/bluetooth.js` | Nordic UART 연결 및 Notification 파이프라인 로직 재사용. 명령 전송 API는 신규 정의 필요 |
 | 대화상자 폴리필 | `js/dialog-polyfill.js` | 동일하게 재사용 |
-| 유틸리티 | `js/utils/format.js`, `js/utils/csv.js` | CSV 유틸은 각도/조도 컬럼으로 수정 완료, 추가 변환 함수는 향후 확장 |
+| 유틸리티 | `js/utils/format.js`, `js/utils/csv.js`, `parseSample` | CSV 유틸은 각도/조도 컬럼으로 수정할 것, 추가 변환 함수는 향후 확장. 파서는 참고만 하고 재작성 |
 | 외부 라이브러리 | `vendor/chart.umd.js` | 차트 렌더링용 Chart.js 번들 유지 |
 | 펌웨어 참고 | `firmware/v1.1-mg-reference.js` | MagnetometerBit v1.1 스크립트 사본. 데이터 포맷/구조 파악용 참고 자료 |
 
-추후 MagnetometerBit에서 참고할 추가 컴포넌트 후보:
-- `js/ui/connection-panel.js`: 상태 관리 및 연결 흐름 로직 참고용 (직접 복사 대신 말루스용으로 재작성)
-- `js/state.js`: 전역 스토어 패턴 재사용 가능 (필드 재정의 필요)
-- `js/ui/banner.js`, `js/ui/data-log.js`: 데이터 바인딩 패턴 참고
+추후 MagnetometerBit에서 있었지만 재작성이 필요한 컴포넌트 후보:
+- `js/ui/connection-panel.js`: 상태 관리 및 연결 흐름 로직 (말루스용으로 재작성)
+- `js/state.js`: 전역 스토어 패턴 (필드 재정의 필요)
+- `js/ui/banner.js`, `js/ui/data-log.js`: 데이터 바인딩 패턴
 
 ## 3. 남은 구현 항목 (우선순위별)
 
@@ -39,11 +39,7 @@ MalussBit는 micro:bit v2, 서보모터, 편광 필름, 내장 조도 센서를 
    - 연결/해제 시 상태 업데이트, 오류 메시지 처리 로직 구축
 
 3. **UI 컴포넌트 구현**
-   - 연결 패널: 버튼 상태, 타임스탬프, 오류 표시 (MagnetometerBit 로직 참고)
-   - 실시간 통계 카드: 조도/각도 현재값 업데이트
-   - 차트 영역: Chart.js 기반 light vs angle 산점도, time-series 보조 차트 설계
-   - 데이터 로그 테이블: 최근 N개 샘플 표시 및 `downloadCsv` 연동
-   - 피팅 결과 표시 및 보정 파라미터 입력 UI (angle zero/scale, SERVO_SPEED_DEG_S 등)
+   - ux-plan.md 참고
 
 4. **데이터 분석 기능**
    - Malus 모델 \(S(\theta) = A \cos^2(\theta + \phi_0) + B\) 피팅 알고리즘 구현 (초기 그리드 + 국소 탐색)
@@ -55,9 +51,6 @@ MalussBit는 micro:bit v2, 서보모터, 편광 필름, 내장 조도 센서를 
    - 향후 펌웨어 저장 위치 및 배포 절차 정의 (MakeCode/TypeScript 스크립트 포함 예정)
    - `v1.1-mg-reference.js`에서 데이터 포맷/블루투스 처리 패턴을 추출해 MalussBit 전용 스크립트 설계
 
-6. **교육용 기능**
-   - 수업 모드 vs 전문가 모드 UI 토글
-   - 실험 메모/결과 공유 기능(간단한 노트 저장 또는 Markdown 내보내기)
 
 ## 4. 개발 로드맵 제안
 
@@ -66,8 +59,7 @@ MalussBit는 micro:bit v2, 서보모터, 편광 필름, 내장 조도 센서를 
 | 1단계 | BLE 연결 및 데이터 수집 파이프라인 | 상태 스토어, 연결 패널, CSV 파서/버퍼, 기본 로그 |
 | 2단계 | 실시간 시각화 | light vs angle 산점도, 시간축 그래프, 통계 카드 |
 | 3단계 | 피팅 및 보정 도구 | 말루스 모델 피팅 모듈, UI 컨트롤, 결과 표시 |
-| 4단계 | 수업 지원 기능 | 데이터 다운로드 개선, 이미지 캡처(선택), 수업 모드 인터랙션 |
-| 5단계 | 품질 보증 | 브라우저 호환성 테스트, ESLint/Prettier 설정(필요 시), 접근성 체크 |
+
 
 ## 5. 문서화 및 후속 작업
 
