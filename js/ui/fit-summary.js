@@ -15,6 +15,21 @@ const buildSignature = (samples) => {
   return `${samples.length}:${first}:${last}`
 }
 
+const hasSufficientCoverage = (samples) => {
+  if (!Array.isArray(samples) || samples.length < MIN_SAMPLES) {
+    return false
+  }
+  const angles = samples
+    .map((sample) => sample?.angleCmd)
+    .filter((angle) => Number.isFinite(angle))
+  if (angles.length < MIN_SAMPLES) {
+    return false
+  }
+  const minAngle = Math.min(...angles)
+  const maxAngle = Math.max(...angles)
+  return Number.isFinite(minAngle) && Number.isFinite(maxAngle) && maxAngle - minAngle >= 60
+}
+
 export const initFitSummary = () => {
   const root = document.querySelector('[data-component="fit-summary"]')
   if (!root) return
@@ -39,8 +54,11 @@ export const initFitSummary = () => {
     const state = store.getState()
     const samples = state.history
 
-    if (samples.length < MIN_SAMPLES) {
-      store.dispatch(actions.setFitStatus({ status: 'idle', error: `샘플이 부족합니다. 최소 ${MIN_SAMPLES}개 필요합니다.`, result: null }))
+    if (!hasSufficientCoverage(samples)) {
+      const coverageMessage = samples.length < MIN_SAMPLES
+        ? `샘플이 부족합니다. 최소 ${MIN_SAMPLES}개 필요합니다.`
+        : '각도 범위가 충분하지 않습니다. 0°에서 180°까지 스윕을 완료했는지 확인하세요.'
+      store.dispatch(actions.setFitStatus({ status: 'idle', error: coverageMessage, result: null }))
       return
     }
 
@@ -65,8 +83,7 @@ export const initFitSummary = () => {
     const signature = buildSignature(samples)
 
     if (runBtn) {
-      const insufficient = samples.length < MIN_SAMPLES
-      runBtn.disabled = fit.status === 'running' || insufficient
+      runBtn.disabled = fit.status === 'running' || !hasSufficientCoverage(samples)
     }
 
     if (fit.status === 'success' && fit.result) {
@@ -93,14 +110,19 @@ export const initFitSummary = () => {
       offsetEl.textContent = '—'
       phaseEl.textContent = '—'
       r2El.textContent = '—'
-      if (samples.length < MIN_SAMPLES) {
-        setMessage(`충분한 데이터를 수집하면 피팅을 실행할 수 있습니다. (현재 ${samples.length}개)`)
+      if (!samples.length) {
+        setMessage('피팅 결과가 준비되면 여기에 표시됩니다.')
+      } else if (!hasSufficientCoverage(samples)) {
+        const info = samples.length < MIN_SAMPLES
+          ? `충분한 데이터를 수집하면 피팅을 실행할 수 있습니다. (현재 ${samples.length}개)`
+          : '각도 범위가 충분하지 않습니다. 스윕을 끝까지 완료하세요.'
+        setMessage(info)
       } else {
         setMessage('피팅 결과가 준비되면 여기에 표시됩니다.')
       }
     }
 
-    if (samples.length >= MIN_SAMPLES && fit.status !== 'running' && signature !== lastSignature && !autoRunScheduled) {
+    if (hasSufficientCoverage(samples) && fit.status !== 'running' && signature !== lastSignature && !autoRunScheduled) {
       autoRunScheduled = true
       window.setTimeout(() => {
         autoRunScheduled = false
