@@ -4,7 +4,7 @@ export const formatTimestamp = (timestamp) => {
 }
 
 export const formatNumber = (value, digits = 2) => {
-  if (value === undefined || Number.isNaN(value)) {
+  if (value === undefined || value === null || Number.isNaN(value)) {
     return '—'
   }
   return Number(value).toFixed(digits)

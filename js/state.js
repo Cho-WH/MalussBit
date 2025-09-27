@@ -1,129 +1,127 @@
-const MAX_SAMPLE_COUNT = 500
+const HISTORY_LIMIT = 400
 
-const defaultState = {
-  currentStep: 'prepare',
-  connection: {
-    status: 'disconnected',
-    deviceName: null,
-  },
-  workflow: {
-    measuring: false,
-    sweepProgress: 0,
-    sweepRemainingMs: 0,
-    sweepDurationMs: 0,
-    sweepStartedAt: null,
-  },
-  samples: [],
-  fitResult: null,
-  fitStatus: 'idle',
-  messages: {
-    status: '',
-    warning: '',
-  },
-  notes: '',
+const INITIAL_FIT = {
+  status: 'idle',
+  result: undefined,
+  error: undefined,
 }
 
-const cloneState = (state) => JSON.parse(JSON.stringify(state))
+const INITIAL_STATE = {
+  connectionStatus: 'disconnected',
+  device: undefined,
+  service: undefined,
+  txCharacteristic: undefined,
+  latestSample: undefined,
+  history: [],
+  fit: { ...INITIAL_FIT },
+  lastUpdatedAt: undefined,
+  errorMessage: undefined,
+}
 
-export const initState = () => {
-  let state = cloneState(defaultState)
-  const listeners = new Set()
+let currentState = { ...INITIAL_STATE }
+const listeners = new Set()
 
-  const getState = () => cloneState(state)
+const appendSample = (history, sample) => {
+  const next = history.concat(sample)
+  if (next.length > HISTORY_LIMIT) {
+    return next.slice(next.length - HISTORY_LIMIT)
+  }
+  return next
+}
 
-  const notify = () => {
-    const snapshot = getState()
-    listeners.forEach((listener) => {
-      try {
-        listener(snapshot)
-      } catch (error) {
-        console.error('State listener failed', error)
+const reducer = (state, action) => {
+  switch (action.type) {
+    case 'setStatus':
+      return { ...state, connectionStatus: action.status }
+    case 'setDevice':
+      return {
+        ...state,
+        device: action.payload?.device,
+        service: action.payload?.service,
+        txCharacteristic: action.payload?.txCharacteristic,
       }
-    })
-  }
-
-  const setState = (partial) => {
-    state = { ...state, ...partial }
-    notify()
-  }
-
-  const setNested = (key, patch) => {
-    state = {
-      ...state,
-      [key]: {
-        ...state[key],
-        ...patch,
-      },
+    case 'setSample': {
+      const sample = action.sample
+      if (!sample) return state
+      return {
+        ...state,
+        latestSample: sample,
+        history: appendSample(state.history, sample),
+        lastUpdatedAt: sample.timestamp,
+        errorMessage: undefined,
+      }
     }
-    notify()
-  }
-
-  const appendSample = (sample) => {
-    if (!sample) return
-    const nextSamples = state.samples.concat(sample)
-    if (nextSamples.length > MAX_SAMPLE_COUNT) {
-      nextSamples.splice(0, nextSamples.length - MAX_SAMPLE_COUNT)
+    case 'setFitStatus':
+      return {
+        ...state,
+        fit: {
+          status: action.status,
+          result: action.result ?? state.fit.result,
+          error: action.error,
+        },
+      }
+    case 'clearHistory':
+      return {
+        ...state,
+        latestSample: undefined,
+        history: [],
+        lastUpdatedAt: undefined,
+      }
+    case 'setError':
+      return { ...state, errorMessage: action.message }
+    case 'reset': {
+      return {
+        ...INITIAL_STATE,
+        fit: { ...INITIAL_FIT },
+      }
     }
-    state = {
-      ...state,
-      samples: nextSamples,
-    }
-    notify()
-  }
-
-  const resetSamples = () => {
-    if (state.samples.length === 0) return
-    state = {
-      ...state,
-      samples: [],
-    }
-    notify()
-  }
-
-  const subscribe = (listener) => {
-    if (typeof listener !== 'function') return () => {}
-    listeners.add(listener)
-    listener(getState())
-    return () => listeners.delete(listener)
-  }
-
-  return {
-    getState,
-    subscribe,
-    setState,
-    setStep: (step) => {
-      if (!step) return
-      setState({ currentStep: step })
-    },
-    setConnection: (patch) => {
-      if (!patch) return
-      setNested('connection', patch)
-    },
-    setWorkflow: (patch) => {
-      if (!patch) return
-      setNested('workflow', patch)
-    },
-    appendSample,
-    resetSamples,
-    setMessages: (patch) => {
-      if (!patch) return
-      setNested('messages', patch)
-    },
-    setNotes: (text) => {
-      setState({ notes: text ?? '' })
-    },
-    setFitResult: (result) => {
-      setState({ fitResult: result })
-    },
-    setFitStatus: (status) => {
-      if (!status) return
-      setState({ fitStatus: status })
-    },
-    reset: () => {
-      state = cloneState(defaultState)
-      notify()
-    },
+    default:
+      return state
   }
 }
 
-export { MAX_SAMPLE_COUNT }
+const notify = () => {
+  listeners.forEach((listener) => {
+    listener(currentState)
+  })
+}
+
+export const store = {
+  getState() {
+    return currentState
+  },
+  dispatch(action) {
+    if (!action || typeof action.type !== 'string') {
+      return
+    }
+    const nextState = reducer(currentState, action)
+    if (nextState !== currentState) {
+      currentState = nextState
+      notify()
+    }
+  },
+  subscribe(listener) {
+    if (typeof listener !== 'function') {
+      return () => {}
+    }
+    listeners.add(listener)
+    listener(currentState)
+    return () => {
+      listeners.delete(listener)
+    }
+  },
+}
+
+export const constants = {
+  HISTORY_LIMIT,
+}
+
+export const actions = {
+  setStatus: (status) => ({ type: 'setStatus', status }),
+  setDevice: (payload) => ({ type: 'setDevice', payload }),
+  setSample: (sample) => ({ type: 'setSample', sample }),
+  setFitStatus: ({ status, result, error }) => ({ type: 'setFitStatus', status, result, error }),
+  setError: (message) => ({ type: 'setError', message }),
+  clearHistory: () => ({ type: 'clearHistory' }),
+  reset: () => ({ type: 'reset' }),
+}

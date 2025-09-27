@@ -1,22 +1,24 @@
 # MalussBit
 
-MalussBit는 micro:bit v2와 서보모터, 내장 조도 센서를 이용해 말루스의 법칙을 실험하는 웹앱 초안입니다. 이 디렉터리는 기존 MagnetometerBit 프로젝트에서 공통으로 활용 가능한 HTML/CSS/JS 자산을 가져와 새로운 실험 도구를 설계하기 위한 출발점을 제공합니다.
+MalussBit는 micro:bit v2와 서보모터, 내장 조도 센서를 이용해 말루스의 법칙(Malus' law)을 손쉽게 측정·시각화하는 최소 구성 웹앱입니다. MagnetometerBit 프로젝트의 정적 자산을 재사용하면서, 단일 스윕으로 데이터를 수집하고 cos² 피팅 결과를 바로 확인할 수 있도록 단순화했습니다.
 
-## 포함된 구성요소
+## 주요 기능
+- **원클릭 스윕**: 장치를 연결한 뒤 `스윕 실행` 버튼을 누르면 0°→180° 범위를 자동으로 측정하고 결과를 기록합니다.
+- **Malus 곡선 피팅**: 수집된 각도/조도 데이터를 cos² 모델에 자동으로 적합하고 진폭(A), 오프셋(B), 위상(φ₀), R²를 표시합니다. 필요 시 버튼으로 재실행할 수 있습니다.
+- **Mock 텔레메트리**: `?mock=1` 파라미터로 접속하면 장치 없이도 동일한 데이터 스트림을 재현해 UI 흐름과 피팅 로직을 확인할 수 있습니다.
+- **데이터 관리**: 실시간 산점도와 최근 로그, CSV 다운로드를 통해 실험 데이터를 저장할 수 있습니다.
 
-- `index.html`: MalussBit 전용 레이아웃과 UI 골격
-- `styles.css`: 기존 프로젝트의 베이스 스타일을 재사용
-- `js/bluetooth.js`: Nordic UART 기반 Web Bluetooth 연결 및 명령 송신 유틸리티
-- `js/dialog-polyfill.js`: `<dialog>` 호환성 확보용 폴리필
-- `js/state.js`: MalussBit 전용 전역 상태 스토어와 액션
-- `js/ui/connection-panel.js`, `js/ui/calibration-panel.js`, `js/ui/measurement-panel.js`, `js/ui/analysis-actions.js`, `js/ui/mode-toggle.js`, `js/ui/step-indicator.js`, `js/ui/status-banner.js`, `js/ui/live-stats.js`, `js/ui/light-chart.js`, `js/ui/data-log.js`, `js/ui/fitting-panel.js`, `js/ui/session-notes.js`: UX 패널 및 보조 UI 모듈
-- `js/utils/format.js`, `js/utils/csv.js`, `js/utils/parseSample.js`: 포맷/CSV/샘플 파서 유틸리티
-- `js/analysis/malusFit.js`: 말루스 피팅 로직과 보정 헬퍼
-- `vendor/chart.umd.js`: 차트 렌더링을 위한 Chart.js 번들
-- `firmware/`: MagnetometerBit 펌웨어 사본과 참조용 문서
+## 사용 방법
+1. micro:bit에 제공된 `firmware/v1.0-mal.js` 코드를 MakeCode에서 플래시합니다. 펌웨어는 `SWEEP` 명령을 받으면 0°→180°로 스윕한 뒤 0°로 복귀합니다.
+2. 웹앱(`index.html`)을 HTTPS 환경 또는 `http://localhost`에서 열고 **디바이스 연결** 버튼으로 micro:bit를 페어링합니다.
+3. 연결되면 **스윕 실행** 버튼을 눌러 단 한 번의 스윕을 수행합니다. 약 9초 내로 모든 데이터가 수집되며, 완료 후 그래프와 피팅 결과가 자동으로 갱신됩니다.
+4. `CSV 다운로드` 버튼으로 누적 데이터를 저장할 수 있습니다. 추가 측정이 필요하면 다시 `스윕 실행` 버튼을 누르세요.
 
-세부 개발 항목과 기존 모듈에서 추가로 재사용할 컴포넌트는 `docs/development-plan.md`를 참고하세요.
+## Mock 모드
+- `index.html?mock=1`로 접속하면 내부 시뮬레이터가 0→180° 스윕 데이터를 생성합니다.
+- 실제 장치 없이도 그래프, 로그, 피팅 결과 등을 검증할 수 있으며, `스윕 실행` 버튼을 반복해 다양한 데이터를 만들어 볼 수 있습니다.
 
-## 상태
-
-현재 UX 흐름(준비→측정→분석)과 자동 보정/측정/피팅을 위한 UI 패널, 상태 관리, 메시지 시스템이 구축되어 있습니다. 펌웨어 연동 세부 로직과 보정 알고리즘 고도화 등은 계속 진행 중이며, `docs/ux-plan.md`와 `docs/detailed-implementation.md`를 참고해 후속 작업을 진행하세요.
+## 참고 사항
+- 펌웨어는 상태 메시지나 진행률 없이 샘플만 전송합니다. 웹앱도 동일하게 단순화되어 불필요한 제어 UI를 제거했습니다.
+- CSV 포맷은 `timestamp,angle_cmd,illuminance`이며, 타임스탬프는 웹앱 수신 시간을 기준으로 ISO 문자열로 저장됩니다.
+- 향후 작업: 실제 장치 테스트 체크리스트 정리, 교사용 보조 UI 설계(반복 스윕·노트), 문서 보강.

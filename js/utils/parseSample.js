@@ -1,12 +1,9 @@
-const isFiniteNumber = (value) => Number.isFinite(value)
-
-const sanitizeNumber = (value) => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string' && value !== '') {
-    const parsed = Number.parseFloat(value)
-    if (isFiniteNumber(parsed)) return parsed
+const parseFinite = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined
   }
-  return null
+  const num = Number(value)
+  return Number.isFinite(num) ? num : undefined
 }
 
 export const parseSample = (raw) => {
@@ -14,23 +11,25 @@ export const parseSample = (raw) => {
     return null
   }
 
-  const segments = raw.split(',')
+  const segments = raw.split(',').map((part) => part.trim())
   if (segments.length < 3) {
     return null
   }
 
-  const [timestampStr, angleStr, _angleEstStr = '', lightStr = ''] = segments.map((part) => part.trim())
-  const timestamp = sanitizeNumber(timestampStr)
-  const angle = sanitizeNumber(angleStr)
-  const light = sanitizeNumber(lightStr)
+  const [tsStr, angleCmdStr, lightStr] = segments
 
-  if (![timestamp, angle, light].every((value) => value !== null)) {
+  const deviceTimestamp = parseFinite(tsStr)
+  const angleCmd = parseFinite(angleCmdStr)
+  const illuminance = parseFinite(lightStr)
+
+  if (deviceTimestamp === undefined || angleCmd === undefined || illuminance === undefined) {
     return null
   }
 
   return {
-    timestamp,
-    angle,
-    light,
+    timestamp: Date.now(),
+    deviceTimestamp,
+    angleCmd,
+    illuminance,
   }
 }

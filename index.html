@@ -2,121 +2,138 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <title>MalussBit Console</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MalussBit Experiment Console</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app">
-      <aside class="sidebar">
-        <section class="card card--branding">
-          <h1>MalussBit</h1>
-          <p class="tagline">말루스 법칙 실험 도우미</p>
-        </section>
-
-        <section class="card" data-component="step-indicator">
-          <h2>진행 단계</h2>
-          <ol class="step-list">
-            <li data-step="prepare" class="step-item">
-              <span class="step-index">1</span>
-              <span class="step-label" data-role="label">준비</span>
-            </li>
-            <li data-step="measure" class="step-item">
-              <span class="step-index">2</span>
-              <span class="step-label" data-role="label">측정</span>
-            </li>
-            <li data-step="analyze" class="step-item">
-              <span class="step-index">3</span>
-              <span class="step-label" data-role="label">분석</span>
-            </li>
-          </ol>
-        </section>
-
-        <section class="card" data-component="connection-panel">
-          <h2>준비</h2>
-          <p class="status-text" data-bind="status">연결 대기 중입니다.</p>
-          <p class="device-label" data-bind="device"></p>
-          <div class="button-group">
-            <button type="button" data-action="connect">블루투스 연결</button>
-            <button type="button" data-action="disconnect" disabled>연결 해제</button>
-            <button type="button" class="ghost" data-action="device-reset">장치 리셋</button>
-          </div>
-          <p class="helper" data-bind="helper">micro:bit 전원이 켜져 있고 페어링 모드인지 확인하세요.</p>
-        </section>
-
-        <section class="card" data-component="measurement-panel">
-          <h2>측정</h2>
-          <p class="section-copy">측정 시작 시 서보 스윕과 데이터 수집을 진행합니다.</p>
-          <button type="button" class="primary" data-action="toggle-measurement" disabled>측정 시작</button>
-          <div class="progress" aria-hidden="true">
-            <div class="progress-bar" data-role="progress-bar"></div>
-          </div>
-          <p class="progress-label" data-role="progress-label">연결 후 측정을 시작하세요.</p>
-        </section>
-
-        <section class="card" data-component="analysis-panel">
-          <h2>분석</h2>
-          <p class="section-copy" data-role="helper">측정을 완료하면 결과를 확인할 수 있습니다.</p>
-          <div class="analysis-result" data-role="result" hidden>
-            <div class="metric">
-              <span class="metric-label">A (진폭)</span>
-              <span class="metric-value" data-field="amplitude">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">B (오프셋)</span>
-              <span class="metric-value" data-field="offset">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">φ (위상)</span>
-              <span class="metric-value" data-field="phase">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">R²</span>
-              <span class="metric-value" data-field="rSquared">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">최대 조도</span>
-              <span class="metric-value" data-field="maxAt">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">최소 조도</span>
-              <span class="metric-value" data-field="minAt">—</span>
-            </div>
-          </div>
-          <p class="analysis-status" data-role="status-text"></p>
-          <div class="button-group">
-            <button type="button" data-action="download-csv" disabled>CSV 다운로드</button>
-            <button type="button" data-action="run-fit" disabled>피팅 실행</button>
-          </div>
-        </section>
-      </aside>
-
-      <section class="content">
-        <div class="card status-card" data-component="status-banner" hidden>
-          <p class="status-message" data-role="status"></p>
-          <p class="status-warning" data-role="warning"></p>
+    <div class="app">
+      <header class="header">
+        <div>
+          <h1 class="title">MalussBit</h1>
+          <p class="subtitle">말루스의 법칙 실험 제어 &amp; 시각화</p>
         </div>
+        <span class="badge">Experiment alpha</span>
+      </header>
 
-        <section class="card chart-card" data-component="light-chart">
-          <header class="card-header">
-            <h2>실시간 그래프</h2>
-            <p class="meta" data-role="meta">샘플이 수집되면 그래프가 표시됩니다.</p>
-          </header>
-          <div class="chart-area">
-            <canvas width="640" height="360"></canvas>
-            <p class="empty" data-role="empty">아직 수집된 데이터가 없습니다.</p>
-          </div>
-        </section>
+      <div id="banner-root" class="banner-host" role="status"></div>
 
-        <section class="card" data-component="notes-panel">
-          <h2>실험 노트</h2>
-          <textarea rows="5" placeholder="실험 메모를 남겨 주세요." disabled></textarea>
-          <p class="helper">노트 기능은 후속 단계에서 활성화됩니다.</p>
+      <div class="main">
+        <aside class="sidebar">
+          <section class="sidebar-section" data-component="connection-panel">
+            <div class="statusRow">
+              <span class="statusLabel">연결 상태</span>
+              <span class="statusValue" data-bind="status">연결 안 됨</span>
+            </div>
+
+            <div class="buttons">
+              <button class="button" type="button" data-action="connect">디바이스 연결</button>
+              <button class="button secondary" type="button" data-action="disconnect" disabled>
+                연결 해제
+              </button>
+            </div>
+
+            <div class="meta">
+              <span>마지막 업데이트: <span data-bind="last-updated">—</span></span>
+              <span>경과 시간: <span data-bind="relative-time">—</span></span>
+            </div>
+
+            <div class="error" data-bind="error" hidden></div>
+
+            <p class="devHelp" data-bind="helper">
+              연결이 어려우면 <button type="button" class="devHelp-link" data-action="show-supported">지원 브라우저</button> 안내를 확인하세요.
+            </p>
+          </section>
+
+          <section class="sidebar-section" data-component="measurement-controls">
+            <h2 class="section-title">측정 제어</h2>
+            <p class="helper">장치를 연결한 뒤 한 번의 스윕을 실행해 데이터를 수집합니다.</p>
+            <div class="buttons single">
+              <button class="button" type="button" data-action="start" disabled>스윕 실행</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="content">
+          <section class="card chart" data-component="intensity-chart">
+            <div class="chart-header">
+              <span class="title">조도 vs 각도</span>
+              <span class="subtitle" data-bind="dataset">샘플을 기다리는 중…</span>
+            </div>
+            <div class="canvasWrapper">
+              <canvas aria-label="조도-각도 차트"></canvas>
+              <p class="empty" data-bind="empty">데이터를 수신하면 곡선이 표시됩니다.</p>
+            </div>
+          </section>
+
+          <section class="card results" data-component="fit-summary">
+            <header>
+              <h2>피팅 결과</h2>
+              <button class="button secondary" type="button" data-action="run-fit" disabled>피팅 실행</button>
+            </header>
+            <div class="result-grid">
+              <div>
+                <span class="label">A (진폭)</span>
+                <span class="value" data-bind="amplitude">—</span>
+              </div>
+              <div>
+                <span class="label">B (오프셋)</span>
+                <span class="value" data-bind="offset">—</span>
+              </div>
+              <div>
+                <span class="label">φ₀ (위상)</span>
+                <span class="value" data-bind="phase">—</span>
+              </div>
+              <div>
+                <span class="label">R²</span>
+                <span class="value" data-bind="r2">—</span>
+              </div>
+            </div>
+            <p class="helper" data-bind="fit-message">충분한 데이터를 수집하면 자동으로 피팅을 실행합니다.</p>
+          </section>
         </section>
+      </div>
+
+      <section class="log" data-component="data-log">
+        <div class="header">
+          <span class="title">측정 로그</span>
+          <button class="button" type="button" data-action="download" disabled>CSV 다운로드</button>
+        </div>
+        <div class="tableWrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">시각</th>
+                <th scope="col">각도(지시)</th>
+                <th scope="col">조도</th>
+              </tr>
+            </thead>
+            <tbody data-bind="rows">
+              <tr>
+                <td colspan="3">데이터를 수집하면 로그가 표시됩니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
-    </main>
+    </div>
+
+    <dialog id="supported-browsers-dialog" class="supported-dialog">
+      <form method="dialog" class="supported-dialog__content">
+        <h2>지원 브라우저 안내</h2>
+        <p>다음 환경에서 Web Bluetooth 사용 시 성공률이 높습니다.</p>
+        <ul>
+          <li><strong>Windows / macOS</strong>: Chrome, Microsoft Edge</li>
+          <li><strong>Chromebook</strong>: Chrome (최신 버전)</li>
+          <li><strong>Android</strong>: Chrome, 삼성 인터넷</li>
+        </ul>
+        <p>iOS/iPadOS는 Safari 기반 브라우저에서 Web Bluetooth를 지원하지 않습니다. Bluefy 등 전용 앱을 이용해야 합니다.</p>
+        <button type="submit" class="button small">닫기</button>
+      </form>
+    </dialog>
 
     <script src="vendor/chart.umd.js"></script>
+    <script src="js/dialog-polyfill.js"></script>
     <script type="module" src="js/app.js"></script>
   </body>
 </html>
