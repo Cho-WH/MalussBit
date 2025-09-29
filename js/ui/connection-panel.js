@@ -118,7 +118,18 @@ export const initConnectionPanel = () => {
   })
 
   const handleLine = (line) => {
-    const sample = parseSample(line)
+    const normalized = typeof line === 'string' ? line.trim() : ''
+    if (!normalized) {
+      return
+    }
+
+    if (normalized.toUpperCase().startsWith('END')) {
+      store.dispatch(actions.setMeasurementStatus('idle'))
+      store.dispatch(actions.setError(undefined))
+      return
+    }
+
+    const sample = parseSample(normalized)
     if (sample) {
       store.dispatch(actions.setSample(sample))
     }
@@ -142,10 +153,13 @@ export const initConnectionPanel = () => {
         store.dispatch(actions.setDevice({ device, service, txCharacteristic }))
 
         await startNotifications(handleLine)
+        store.dispatch(actions.setMeasurementStatus('resetting'))
         await sendResetCommand()
+        store.dispatch(actions.resetMeasurement())
         store.dispatch(actions.setStatus('connected'))
       } catch (error) {
         console.error(error)
+        store.dispatch(actions.setMeasurementStatus('idle'))
         try {
           await stopNotifications()
         } catch (_) {

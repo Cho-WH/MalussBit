@@ -16,6 +16,7 @@ const INITIAL_STATE = {
   fit: { ...INITIAL_FIT },
   lastUpdatedAt: undefined,
   errorMessage: undefined,
+  measurementStatus: 'idle',
 }
 
 let currentState = { ...INITIAL_STATE }
@@ -60,12 +61,26 @@ const reducer = (state, action) => {
           error: action.error,
         },
       }
+    case 'setMeasurementStatus':
+      return {
+        ...state,
+        measurementStatus: action.status,
+      }
     case 'clearHistory':
       return {
         ...state,
         latestSample: undefined,
         history: [],
         lastUpdatedAt: undefined,
+      }
+    case 'resetMeasurement':
+      return {
+        ...state,
+        latestSample: undefined,
+        history: [],
+        lastUpdatedAt: undefined,
+        fit: { ...INITIAL_FIT },
+        errorMessage: undefined,
       }
     case 'setError':
       return { ...state, errorMessage: action.message }
@@ -121,7 +136,9 @@ export const actions = {
   setDevice: (payload) => ({ type: 'setDevice', payload }),
   setSample: (sample) => ({ type: 'setSample', sample }),
   setFitStatus: ({ status, result, error }) => ({ type: 'setFitStatus', status, result, error }),
+  setMeasurementStatus: (status) => ({ type: 'setMeasurementStatus', status }),
   setError: (message) => ({ type: 'setError', message }),
   clearHistory: () => ({ type: 'clearHistory' }),
+  resetMeasurement: () => ({ type: 'resetMeasurement' }),
   reset: () => ({ type: 'reset' }),
 }

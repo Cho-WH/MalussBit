@@ -18,10 +18,11 @@ const generateSample = (angle) => {
 
 export const initMockTelemetry = () => {
   store.dispatch(actions.setStatus('connected'))
-  store.dispatch(actions.clearHistory())
+  store.dispatch(actions.resetMeasurement())
 
   const startSweep = () => {
-    store.dispatch(actions.clearHistory())
+    store.dispatch(actions.resetMeasurement())
+    store.dispatch(actions.setMeasurementStatus('running'))
     let angle = START_DEG
     const timer = window.setInterval(() => {
       const illuminance = generateSample(angle)
@@ -36,12 +37,14 @@ export const initMockTelemetry = () => {
       angle += 1
       if (angle > END_DEG) {
         window.clearInterval(timer)
+        store.dispatch(actions.setMeasurementStatus('idle'))
       }
     }, INTERVAL_MS)
   }
 
   const reset = () => {
-    store.dispatch(actions.clearHistory())
+    store.dispatch(actions.resetMeasurement())
+    store.dispatch(actions.setMeasurementStatus('idle'))
   }
 
   if (typeof window !== 'undefined') {
