@@ -1,7 +1,7 @@
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
     uartCommand = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
     if (uartCommand == "SWEEP") {
-        performSweep()
+        queueSweep()
     } else if (uartCommand == "RESET" || uartCommand == "STOP") {
         handleResetCommand()
     }
@@ -32,8 +32,15 @@ function sendSample (angle: number) {
     millis = control.millis()
     bluetooth.uartWriteLine("" + millis + "," + angle + "," + convertToText(input.lightLevel()))
 }
+function queueSweep () {
+    if (isSweeping) {
+        return
+    }
+    startSweepRequested = true
+}
 function handleResetCommand () {
     cancelRequested = true
+    startSweepRequested = false
     if (!isSweeping) {
         enterIdleState(true)
     }
@@ -53,6 +60,15 @@ function setup () {
     bluetooth.startUartService()
     angle = SWEEP_START_DEG
     servos.P1.setRange(0, 180)
+    control.inBackground(function () {
+        while (true) {
+            if (startSweepRequested && !isSweeping) {
+                startSweepRequested = false
+                performSweep()
+            }
+            basic.pause(10)
+        }
+    })
 }
 let millis = 0
 let angle = 0
@@ -63,6 +79,7 @@ let SWEEP_START_DEG = 0
 let SWEEP_STEP_DEG = 0
 let isSweeping = false
 let cancelRequested = false
+let startSweepRequested = false
 SWEEP_START_DEG = 0
 SWEEP_END_DEG = 180
 SAMPLE_INTERVAL_MS = 50
